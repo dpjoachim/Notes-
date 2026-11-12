@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Session Notes</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1f5f4a">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f5f2; --card:#fff; --ink:#1c1c1a; --muted:#6b6a65; --line:#e4e2dc;
+    --accent:#1f5f4a; --accent-soft:#e6f0ec; --warn:#a33a2a; --warn-soft:#f8e9e6;
+    --radius:14px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#141413; --card:#1e1e1c; --ink:#efede8; --muted:#a09e97; --line:#33322f;
+      --accent:#5fbf9b; --accent-soft:#1d2e28; --warn:#e07a68; --warn-soft:#3a2220; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:640px;margin:0 auto;padding:16px 16px 96px}
+  h1{font-size:22px;margin:4px 0 2px;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:14px}
+  nav{display:flex;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:16px;position:sticky;top:8px;z-index:5}
+  nav button{flex:1;border:0;background:none;padding:10px 6px;border-radius:9px;font:600 14px Inter,sans-serif;color:var(--muted);cursor:pointer}
+  nav button.on{background:var(--accent);color:#fff}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+  label{display:block;font-weight:600;font-size:14px;margin:14px 0 6px}
+  label:first-child{margin-top:0}
+  .row{display:flex;gap:10px}
+  .row > *{flex:1}
+  input,textarea,select{width:100%;font:16px Inter,sans-serif;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 12px}
+  textarea{min-height:92px;resize:vertical}
+  input:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
+  .field{position:relative}
+  .mic{position:absolute;right:8px;bottom:8px;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--card);cursor:pointer;display:none;align-items:center;justify-content:center}
+  .has-mic .mic{display:flex}
+  .mic.live{background:var(--warn);border-color:var(--warn)}
+  .mic.live svg{stroke:#fff}
+  .mic svg{width:18px;height:18px;stroke:var(--ink);fill:none;stroke-width:2}
+  .has-mic textarea{padding-right:52px}
+  .hint{color:var(--muted);font-size:13px;margin-top:4px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:600 15px Inter,sans-serif;padding:11px 16px;border-radius:10px;cursor:pointer}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;width:100%;padding:14px;font-size:16px}
+  .btn.small{padding:7px 11px;font-size:13px}
+  .btn.danger{color:var(--warn);border-color:var(--warn)}
+  .btn:disabled{opacity:.5;cursor:default}
+  .last{background:var(--accent-soft);border:1px solid transparent;border-radius:12px;padding:12px 14px;margin-top:12px;font-size:14px}
+  .last h4{margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--accent)}
+  .last .k{font-weight:600}
+  .pre{white-space:pre-wrap}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:999px;font-weight:600;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
+  .toast.show{opacity:1}
+  .list-item{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;color:var(--ink);font:inherit}
+  .list-item .t{display:flex;justify-content:space-between;gap:8px;font-weight:600}
+  .list-item .d{color:var(--muted);font-weight:500;font-size:14px;white-space:nowrap}
+  .list-item .p{color:var(--muted);font-size:14px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .flag{color:var(--warn);font-weight:600}
+  .empty{color:var(--muted);text-align:center;padding:28px 10px}
+  .note h3{margin:0 0 2px;font-size:19px}
+  .note .meta{color:var(--muted);font-size:14px;margin-bottom:10px}
+  .note .sec{margin-top:12px}
+  .note .sec b{display:block;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:3px}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+  .banner{background:var(--warn-soft);color:var(--warn);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:14px;display:none}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .chip{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:6px 11px;font:500 14px Inter,sans-serif;color:var(--ink);cursor:pointer}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:20px;z-index:30}
+  .modal.show{display:flex}
+  .modal .card{max-width:360px;width:100%}
+  .hidden{display:none !important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Session Notes</h1>
+  <div class="sub">Jot it down before you forget it.</div>
+  <div class="banner" id="banner"></div>
+
+  <nav>
+    <button data-v="new" class="on">New note</button>
+    <button data-v="clients">Clients</button>
+    <button data-v="all">All notes</button>
+    <button data-v="backup">Backup</button>
+  </nav>
+
+  <!-- NEW / EDIT -->
+  <section id="v-new">
+    <div class="card">
+      <label for="client">Client</label>
+      <input id="client" list="clientList" placeholder="Type a name" autocomplete="off">
+      <datalist id="clientList"></datalist>
+      <div class="chips" id="recentChips"></div>
+
+      <div id="lastBox"></div>
+
+      <label for="date">Date</label>
+      <input id="date" type="date">
+
+      <label for="ex">What they did</label>
+      <div class="field">
+        <textarea id="ex" placeholder="One per line&#10;Goblet squat 3x10 35lb&#10;Single leg RDL 3x8 each, 20lb"></textarea>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn small" id="copyLast" disabled>Copy last workout</button>
+        <span></span>
+      </div>
+
+      <label for="talk">What we talked about</label>
+      <div class="field">
+        <textarea id="talk" placeholder="Kid starting college, trip to Italy in March, new job stress..."></textarea>
+      </div>
+
+      <label for="flags">Pain, injuries, how they felt</label>
+      <div class="field">
+        <textarea id="flags" style="min-height:64px" placeholder="Left knee cranky on lunges. Slept badly."></textarea>
+      </div>
+
+      <label for="next">Next time</label>
+      <div class="field">
+        <textarea id="next" style="min-height:64px" placeholder="Progress RDL to 25lb. Ask how the trip went."></textarea>
+      </div>
+    </div>
+    <button class="btn primary" id="save">Save note</button>
+    <div class="actions" id="editActions" style="justify-content:center"></div>
+  </section>
+
+  <!-- CLIENTS -->
+  <section id="v-clients" class="hidden">
+    <input id="clientSearch" placeholder="Search clients" style="margin-bottom:12px">
+    <div id="clientsOut"></div>
+  </section>
+
+  <!-- ALL / CLIENT DETAIL -->
+  <section id="v-all" class="hidden">
+    <div id="allHead"></div>
+    <input id="noteSearch" placeholder="Search notes (any word)" style="margin-bottom:12px">
+    <div id="allOut"></div>
+  </section>
+
+  <!-- BACKUP -->
+  <section id="v-backup" class="hidden">
+    <div class="card">
+      <h3 style="margin:0 0 6px">Back up your notes</h3>
+      <div class="hint" style="font-size:14px;margin-bottom:12px">Your notes live only on this phone. Send yourself a backup file every week or so. Email it to yourself or save it to Google Drive.</div>
+      <div id="backupStatus" style="font-size:14px;margin-bottom:12px"></div>
+      <button class="btn primary" id="doBackup">Back up now</button>
+      <a id="dlLink" class="hidden"></a>
+    </div>
+    <div class="card">
+      <h3 style="margin:0 0 6px">Restore from a backup</h3>
+      <div class="hint" style="font-size:14px;margin-bottom:12px">Pick a backup file. Notes already here are kept. Matching notes are updated.</div>
+      <input type="file" id="restoreFile" accept=".json,application/json">
+    </div>
+  </section>
+
+  <!-- SINGLE NOTE -->
+  <section id="v-note" class="hidden"></section>
+</div>
+
+<div class="modal" id="modal"><div class="card">
+  <div id="modalText" style="font-weight:600;margin-bottom:14px"></div>
+  <div class="row"><button class="btn" id="mNo">Cancel</button><button class="btn danger" id="mYes">Delete</button></div>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const today = () => { const d = new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
+const fmtDate = s => { if(!s) return ""; const [y,m,d] = s.split("-").map(Number); return new Date(y,m-1,d).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric",year: y===new Date().getFullYear()?undefined:"numeric"}); };
+const norm = s => (s||"").trim().replace(/\s+/g," ");
+const key = s => norm(s).toLowerCase();
+
+let col = null, notes = [], editingId = null, clientFilter = null, currentView = "new";
+
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("show"),1800); }
+function banner(msg){ const b=$("#banner"); if(!msg){b.style.display="none";return;} b.textContent=msg; b.style.display="block"; }
+function ask(text){ return new Promise(res=>{ $("#modalText").textContent=text; $("#modal").classList.add("show");
+  const done=v=>{ $("#modal").classList.remove("show"); $("#mYes").onclick=$("#mNo").onclick=null; res(v); };
+  $("#mYes").onclick=()=>done(true); $("#mNo").onclick=()=>done(false); }); }
+
+/* ---------- views ---------- */
+function show(v){
+  currentView = v;
+  ["new","clients","all","note","backup"].forEach(x => $("#v-"+x).classList.toggle("hidden", x!==v));
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("on", b.dataset.v===v || (v==="note" && b.dataset.v==="all")));
+  if(v==="clients") renderClients();
+  if(v==="all") renderAll();
+  if(v==="backup") renderBackup();
+  window.scrollTo(0,0);
+}
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+  if(b.dataset.v==="all") clientFilter = null;
+  if(b.dataset.v==="new" && editingId) resetForm();
+  show(b.dataset.v);
+});
+
+/* ---------- data helpers ---------- */
+function sorted(){ return [...notes].sort((a,b)=> (b.date||"").localeCompare(a.date||"") || (b.updatedAt||0)-(a.updatedAt||0)); }
+function clients(){
+  const m = new Map();
+  for(const n of sorted()){ const k=key(n.client); if(!k) continue;
+    if(!m.has(k)) m.set(k,{name:norm(n.client), last:n.date, count:0}); m.get(k).count++; }
+  return [...m.values()];
+}
+function lastFor(name, excludeId){ const k=key(name); return sorted().find(n => key(n.client)===k && n.id!==excludeId); }
+
+/* ---------- form ---------- */
+function resetForm(){
+  editingId=null; ["client","ex","talk","flags","next"].forEach(i=>$("#"+i).value="");
+  $("#date").value=today(); $("#save").textContent="Save note"; $("#editActions").innerHTML=""; updateLast();
+}
+function fillForm(n){
+  editingId=n.id; $("#client").value=n.client||""; $("#date").value=n.date||today();
+  $("#ex").value=n.exercises||""; $("#talk").value=n.talked||""; $("#flags").value=n.flags||""; $("#next").value=n.next||"";
+  $("#save").textContent="Update note";
+  $("#editActions").innerHTML='<button class="btn small" id="cancelEdit">Cancel edit</button>';
+  $("#cancelEdit").onclick=()=>{ resetForm(); };
+  updateLast(); show("new");
+}
+function updateLast(){
+  const name=$("#client").value; const box=$("#lastBox"); const l = name.trim() ? lastFor(name, editingId) : null;
+  $("#copyLast").disabled = !(l && l.exercises);
+  if(!l){ box.innerHTML=""; return; }
+  box.innerHTML = `<div class="last"><h4>Last session · ${esc(fmtDate(l.date))}</h4>
+    ${l.next?`<div><span class="k">Planned for today:</span> <span class="pre">${esc(l.next)}</span></div>`:""}
+    ${l.flags?`<div style="margin-top:4px"><span class="k flag">Watch:</span> <span class="pre">${esc(l.flags)}</span></div>`:""}
+    ${l.talked?`<div style="margin-top:4px"><span class="k">Talked about:</span> <span class="pre">${esc(l.talked)}</span></div>`:""}
+    ${l.exercises?`<div style="margin-top:4px"><span class="k">Did:</span> <span class="pre">${esc(l.exercises)}</span></div>`:""}
+  </div>`;
+}
+$("#client").addEventListener("input", updateLast);
+$("#copyLast").onclick = () => {
+  const l = lastFor($("#client").value, editingId); if(!l) return;
+  const ex=$("#ex"); ex.value = ex.value.trim() ? ex.value.trim()+"\n"+l.exercises : l.exercises; toast("Copied. Edit the weights.");
+};
+
+$("#save").onclick = async () => {
+    const client = norm($("#client").value);
+  if(!client){ $("#client").focus(); toast("Add the client's name"); return; }
+  const body = { client, date: $("#date").value || today(),
+    exercises: $("#ex").value.trim(), talked: $("#talk").value.trim(), flags: $("#flags").value.trim(), next: $("#next").value.trim(),
+    updatedAt: Date.now() };
+  const btn=$("#save"); btn.disabled=true;
+  try{
+    if(editingId){ const prev = notes.find(n=>n.id===editingId); body.createdAt = prev?.createdAt || Date.now(); await col.doc(editingId).set(body); toast("Updated"); }
+    else { body.createdAt = Date.now(); await col.add(body); toast("Saved"); }
+    resetForm();
+  }catch(e){
+    toast(e?.code==="quota_exceeded" ? "Storage full. Delete some old notes." : "Didn't save. Try again.");
+  }finally{ btn.disabled=false; }
+};
+
+/* ---------- lists ---------- */
+function renderChips(){
+  const c = clients().slice(0,6);
+  $("#recentChips").innerHTML = c.map(x=>`<button class="chip" data-n="${esc(x.name)}">${esc(x.name)}</button>`).join("");
+  document.querySelectorAll("#recentChips .chip").forEach(b=>b.onclick=()=>{ $("#client").value=b.dataset.n; updateLast(); });
+  $("#clientList").innerHTML = clients().map(x=>`<option value="${esc(x.name)}">`).join("");
+}
+function renderClients(){
+  const q=key($("#clientSearch").value); const list=clients().filter(c=>!q||key(c.name).includes(q));
+  $("#clientsOut").innerHTML = list.length ? list.map(c=>`<button class="list-item" data-n="${esc(c.name)}">
+    <div class="t"><span>${esc(c.name)}</span><span class="d">${esc(fmtDate(c.last))}</span></div>
+    <div class="p">${c.count} note${c.count>1?"s":""}</div></button>`).join("")
+    : `<div class="empty">${notes.length?"No match.":"No clients yet. Save your first note."}</div>`;
+  document.querySelectorAll("#clientsOut .list-item").forEach(b=>b.onclick=()=>{ clientFilter=b.dataset.n; show("all"); });
+}
+$("#clientSearch").addEventListener("input", renderClients);
+
+function preview(n){ return n.talked || n.exercises || n.next || n.flags || ""; }
+function renderAll(){
+  const q=key($("#noteSearch").value);
+  let list = sorted();
+  if(clientFilter) list = list.filter(n=>key(n.client)===key(clientFilter));
+  if(q) list = list.filter(n=>[n.client,n.exercises,n.talked,n.flags,n.next].join(" ").toLowerCase().includes(q));
+  $("#allHead").innerHTML = clientFilter ? `<div class="row" style="align-items:center;margin-bottom:12px">
+      <h3 style="margin:0">${esc(clientFilter)}</h3>
+      <div style="text-align:right"><button class="btn small" id="newFor">+ Note</button> <button class="btn small" id="copyAll">Copy all</button></div></div>` : "";
+  if(clientFilter){
+    $("#newFor").onclick=()=>{ resetForm(); $("#client").value=clientFilter; updateLast(); show("new"); };
+    $("#copyAll").onclick=()=>copyText(list.map(asText).join("\n\n----------\n\n"));
+  }
+  $("#allOut").innerHTML = list.length ? list.map(n=>`<button class="list-item" data-id="${esc(n.id)}">
+    <div class="t"><span>${esc(clientFilter?fmtDate(n.date):n.client)}</span><span class="d">${clientFilter?"":esc(fmtDate(n.date))}</span></div>
+    <div class="p">${n.flags?'<span class="flag">⚑ </span>':""}${esc(preview(n).split("\n")[0])}</div></button>`).join("")
+    : `<div class="empty">${notes.length?"Nothing found.":"No notes yet."}</div>`;
+  document.querySelectorAll("#allOut .list-item").forEach(b=>b.onclick=()=>openNote(b.dataset.id));
+}
+$("#noteSearch").addEventListener("input", renderAll);
+
+function asText(n){
+  return [`${n.client} · ${fmtDate(n.date)}`,
+    n.exercises&&`DID:\n${n.exercises}`, n.talked&&`TALKED ABOUT:\n${n.talked}`,
+    n.flags&&`PAIN / HOW THEY FELT:\n${n.flags}`, n.next&&`NEXT TIME:\n${n.next}`].filter(Boolean).join("\n\n");
+}
+async function copyText(t){ try{ await navigator.clipboard.writeText(t); toast("Copied"); }catch{ toast("Copy blocked here"); } }
+
+function openNote(id){
+  const n=notes.find(x=>x.id===id); if(!n) return;
+  const sec=(t,v,cls="")=> v?`<div class="sec"><b>${t}</b><div class="pre ${cls}">${esc(v)}</div></div>`:"";
+  $("#v-note").innerHTML = `<button class="btn small" id="back">← Back</button>
+    <div class="card note" style="margin-top:12px">
+      <h3>${esc(n.client)}</h3><div class="meta">${esc(fmtDate(n.date))}</div>
+      ${sec("What they did",n.exercises)}${sec("What we talked about",n.talked)}
+      ${sec("Pain, injuries, how they felt",n.flags,"flag")}${sec("Next time",n.next)}
+      <div class="actions"><button class="btn small" id="edit">Edit</button><button class="btn small" id="cp">Copy</button>
+      <button class="btn small danger" id="del">Delete</button></div>
+    </div>`;
+  $("#back").onclick=()=>show("all");
+  $("#edit").onclick=()=>fillForm(n);
+  $("#cp").onclick=()=>copyText(asText(n));
+  $("#del").onclick=async()=>{ if(!(await ask(`Delete this note for ${n.client}?`))) return;
+    try{ await col.doc(n.id).delete(); toast("Deleted"); show("all"); }catch{ toast("Didn't delete. Try again."); } };
+  show("note");
+}
+
+function rerender(){
+  renderChips(); updateLast(); if(typeof checkBackupNag==="function") checkBackupNag();
+  if(currentView==="clients") renderClients();
+  if(currentView==="all") renderAll();
+}
+
+/* ---------- local storage ---------- */
+const KEY="sessionNotes.v1", BKEY="sessionNotes.lastBackup";
+function load(){ try{ return JSON.parse(localStorage.getItem(KEY)||"[]"); }catch{ return []; } }
+function persist(){ try{ localStorage.setItem(KEY, JSON.stringify(notes)); return true; }catch{ toast("Phone storage is full"); return false; } }
+const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+col = {
+  add: async body => { notes.push({id:uid(), ...body}); if(!persist()) throw new Error(); rerender(); },
+  doc: id => ({
+    set: async body => { const i=notes.findIndex(n=>n.id===id); const v={id,...body}; if(i<0) notes.push(v); else notes[i]=v; if(!persist()) throw new Error(); rerender(); },
+    delete: async () => { notes=notes.filter(n=>n.id!==id); persist(); rerender(); }
+  })
+};
+
+function daysSince(t){ return t ? Math.floor((Date.now()-t)/86400000) : null; }
+function checkBackupNag(){
+  let t=null; try{ t=Number(localStorage.getItem(BKEY))||null; }catch{}
+  const d=daysSince(t);
+  if(notes.length && (d===null || d>=7)) banner(d===null ? "No backup yet. Tap Backup and send yourself a copy." : `Last backup was ${d} days ago. Tap Backup.`);
+  else banner("");
+}
+function renderBackup(){
+  let t=null; try{ t=Number(localStorage.getItem(BKEY))||null; }catch{}
+  $("#backupStatus").innerHTML = `<b>${notes.length}</b> note${notes.length===1?"":"s"} on this phone. ` + (t ? `Last backup: ${new Date(t).toLocaleDateString()}.` : "Never backed up.");
+}
+$("#doBackup").onclick = async () => {
+  const name = `session-notes-backup-${today()}.json`;
+  const blob = new Blob([JSON.stringify({app:"session-notes",version:1,exported:new Date().toISOString(),notes},null,2)],{type:"application/json"});
+  const file = new File([blob], name, {type:"application/json"});
+  let done=false;
+  try{ if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:"Session notes backup"}); done=true; } }
+  catch(e){ if(e && e.name==="AbortError") return; }
+  if(!done){ const a=$("#dlLink"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); done=true; }
+  try{ localStorage.setItem(BKEY, String(Date.now())); }catch{}
+  renderBackup(); checkBackupNag(); toast("Backup made");
+};
+$("#restoreFile").onchange = async e => {
+  const f=e.target.files[0]; if(!f) return;
+  try{
+    const data=JSON.parse(await f.text()); const incoming=Array.isArray(data)?data:data.notes;
+    if(!Array.isArray(incoming)) throw new Error();
+    let added=0;
+    for(const n of incoming){ if(!n||!n.id) continue; const i=notes.findIndex(x=>x.id===n.id);
+      if(i<0){ notes.push(n); added++; } else if((n.updatedAt||0)>(notes[i].updatedAt||0)) notes[i]=n; }
+    persist(); rerender(); renderBackup(); toast(`Restored. ${added} new note${added===1?"":"s"}.`);
+  }catch{ toast("That file isn't a notes backup"); }
+  e.target.value="";
+};
+
+/* ---------- boot ---------- */
+$("#date").value = today();
+notes = load();
+rerender(); checkBackupNag();
+if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
+if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
