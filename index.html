@@ -231,7 +231,9 @@ function updateLast(){
     ${l.flags?`<div style="margin-top:4px"><span class="k flag">Watch:</span> <span class="pre">${esc(l.flags)}</span></div>`:""}
     ${l.talked?`<div style="margin-top:4px"><span class="k">Talked about:</span> <span class="pre">${esc(l.talked)}</span></div>`:""}
     ${l.exercises?`<div style="margin-top:4px"><span class="k">Did:</span> <span class="pre">${esc(l.exercises)}</span></div>`:""}
+    <button class="btn small" id="editLast" style="margin-top:10px">Edit this note</button>
   </div>`;
+  $("#editLast").onclick = () => fillForm(l);
 }
 $("#client").addEventListener("input", updateLast);
 $("#copyLast").onclick = () => {
