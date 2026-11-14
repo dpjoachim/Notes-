@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lift Log</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f1115">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#0f1115;--card:#181b22;--card2:#20242d;--line:#2a2f3a;
+  --text:#eef1f6;--muted:#8a93a5;--accent:#ff7a1a;--accent2:#ffb27a;--good:#3ecf8e;--bad:#ff5a5a;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+input,textarea{font:inherit;color:var(--text);background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:12px;width:100%}
+input:focus,textarea:focus{outline:2px solid var(--accent);border-color:transparent}
+.wrap{max-width:560px;margin:0 auto;padding:16px 14px 90px}
+header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+header h1{font-size:22px;margin:0;flex:1;letter-spacing:.3px}
+.btn{background:var(--accent);color:#111;border:0;border-radius:10px;padding:10px 14px;font-weight:700}
+.btn.ghost{background:var(--card2);color:var(--text);font-weight:600}
+.btn.danger{background:transparent;color:var(--bad);border:1px solid var(--bad)}
+.btn.wide{width:100%;padding:14px}
+.search{margin-bottom:12px}
+.banner{background:#2a2110;color:var(--accent2);border:1px solid #4a3515;border-radius:10px;padding:10px 12px;font-size:14px;margin-bottom:12px;display:none}
+.list{display:flex;flex-direction:column;gap:8px}
+.ex{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:10px;text-align:left;width:100%}
+.ex .nm{flex:1;min-width:0}
+.ex .nm b{display:block;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ex .nm small{color:var(--muted);font-size:13px}
+.top{font-weight:800;font-size:18px;color:var(--accent);white-space:nowrap}
+.top span{color:var(--muted);font-weight:600;font-size:14px}
+.empty{color:var(--muted);text-align:center;padding:30px 0}
+/* detail */
+#detail{display:none}
+.back{background:none;border:0;color:var(--accent);padding:6px 0;font-weight:600}
+.dhead{display:flex;align-items:flex-start;gap:8px;margin:6px 0 10px}
+.dhead h2{margin:0;font-size:22px;flex:1}
+.pr{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;gap:12px;margin-bottom:12px}
+.pr div{flex:1}
+.pr label{display:block;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+.pr strong{font-size:22px}
+.form{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+.row{display:flex;gap:8px;margin-bottom:8px}
+.row>*{flex:1}
+.fl{color:var(--muted);font-size:12px;margin:0 0 4px 2px;display:block}
+.hist h3{font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:6px 2px 8px}
+.entry{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--line)}
+.entry .w{font-weight:700;min-width:78px}
+.entry .r{flex:1}
+.entry .r small{display:block;color:var(--muted);font-size:12px}
+.entry .x{background:none;border:0;color:var(--muted);font-size:18px;padding:4px 8px}
+.entry .x.armed{color:var(--bad);font-size:13px;font-weight:700}
+.badge{background:var(--good);color:#06281a;font-size:11px;font-weight:800;border-radius:6px;padding:2px 6px;margin-left:6px;vertical-align:middle}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--good);color:#06281a;font-weight:800;padding:12px 18px;border-radius:12px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:9}
+.toast.show{opacity:1}
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:flex-end;justify-content:center;z-index:8}
+.sheet .in{background:var(--card);width:100%;max-width:560px;border-radius:18px 18px 0 0;padding:18px 14px 26px}
+.sheet h3{margin:0 0 12px}
+.foot{margin-top:22px;display:flex;gap:8px}
+.foot .btn{flex:1}
+textarea{min-height:220px;font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <section id="home">
+    <header>
+      <h1>Lift Log</h1>
+      <button class="btn" id="addBtn">+ Exercise</button>
+    </header>
+    <div class="banner" id="banner"></div>
+    <input class="search" id="q" placeholder="Search exercises" autocomplete="off">
+    <div class="list" id="list"><div class="empty">Loading…</div></div>
+    <div class="foot">
+      <button class="btn ghost" id="exportBtn">Copy as text</button>
+      <button class="btn ghost" id="backupBtn">Backup</button>
+    </div>
+    <div class="foot" style="margin-top:8px">
+      <label class="btn ghost" style="flex:1;text-align:center">Restore backup<input type="file" id="restoreFile" accept=".json,application/json" style="display:none"></label>
+    </div>
+    <p id="backupStatus" style="color:var(--muted);font-size:13px;text-align:center;margin-top:12px"></p>
+    <a id="dlLink" style="display:none"></a>
+  </section>
+
+  <section id="detail">
+    <button class="back" id="backBtn">‹ All exercises</button>
+    <div class="dhead">
+      <h2 id="dName"></h2>
+      <button class="btn ghost" id="renameBtn">Edit</button>
+    </div>
+    <div class="pr">
+      <div><label>Top weight</label><strong id="dTop">–</strong></div>
+      <div><label>Last done</label><strong id="dLast" style="font-size:16px">–</strong></div>
+    </div>
+    <div class="form">
+      <div class="row">
+        <div><span class="fl">Weight (lb)</span><input id="fW" inputmode="decimal" placeholder="e.g. 225"></div>
+        <div><span class="fl">Reps per set</span><input id="fR" placeholder="5,5,5"></div>
+      </div>
+      <span class="fl">Note (optional)</span>
+      <input id="fN" placeholder="gym, tempo, felt easy…" style="margin-bottom:10px">
+      <button class="btn wide" id="saveBtn">Log it</button>
+    </div>
+    <div class="hist">
+      <h3>History</h3>
+      <div id="dHist"></div>
+    </div>
+  </section>
+
+</div>
+
+<div class="sheet" id="sheet">
+  <div class="in">
+    <h3 id="sTitle">New exercise</h3>
+    <input id="sName" placeholder="Exercise name" autocomplete="off" style="margin-bottom:10px">
+    <div class="row" id="sBtns">
+      <button class="btn ghost" id="sCancel">Cancel</button>
+      <button class="btn" id="sSave">Save</button>
+    </div>
+    <button class="btn danger wide" id="sDelete" style="margin-top:6px;display:none">Delete exercise</button>
+  </div>
+</div>
+
+<div class="sheet" id="expSheet">
+  <div class="in">
+    <h3>Your list as text</h3>
+    <textarea id="expText" readonly></textarea>
+    <div class="row" style="margin-top:10px">
+      <button class="btn ghost" id="expClose">Close</button>
+      <button class="btn" id="expCopy">Copy</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const LS_KEY = "liftlog.v1";
+  let exercises = {};      // id -> {name, order, log:[]}
+  let db = null, col = null, localMode = false;
+  let currentId = null, armedDelete = null, sheetMode = "add";
+
+  // ---------- helpers ----------
+  const today = () => {
+    const d = new Date();
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  };
+  const fmtDate = s => {
+    if(!s) return "";
+    const [y,m,d] = s.split("-").map(Number);
+    const dt = new Date(y, m-1, d);
+    return dt.toLocaleDateString(undefined,{month:"short",day:"numeric",year: y===new Date().getFullYear()?undefined:"numeric"});
+  };
+  const maxRep = r => {
+    const nums = String(r||"").match(/\d+(\.\d+)?/g);
+    return nums ? Math.max(...nums.map(Number)) : 0;
+  };
+  const topOf = ex => {
+    let best = null;
+    (ex.log||[]).forEach(e => {
+      if(e.w == null || e.w === "") return;
+      const w = Number(e.w);
+      if(!best || w > best.w || (w === best.w && maxRep(e.reps) > maxRep(best.reps))) best = {w, reps:e.reps, id:e.id};
+    });
+    return best;
+  };
+  const lastOf = ex => {
+    const l = (ex.log||[]).slice().sort((a,b)=> (b.date||"").localeCompare(a.date||"") || (b.t||0)-(a.t||0));
+    return l[0] || null;
+  };
+  const wTxt = w => (w==null||w==="") ? "BW" : (Number(w)%1 ? Number(w).toFixed(1) : String(Number(w)));
+  const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+  const slug = s => (s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40) || "ex") + "-" + uid().slice(-4);
+  const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),2200); }
+  function banner(msg){ const b=$("banner"); if(msg){b.textContent=msg;b.style.display="block";} else b.style.display="none"; }
+
+  // ---------- storage ----------
+  function saveLocal(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(exercises)); }catch(e){} }
+  function loadLocal(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||"{}")||{}; }catch(e){ return {}; } }
+
+  async function persist(){
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(exercises)); }
+    catch(e){ toast("Phone storage is full"); }
+    checkBackupNag(); renderBackup();
+  }
+
+  // ---------- render ----------
+  function render(){
+    if(currentId && exercises[currentId]) renderDetail(); else { currentId=null; showHome(); }
+  }
+  function sortedIds(){
+    return Object.keys(exercises).sort((a,b)=>{
+      const A=exercises[a], B=exercises[b];
+      return (A.order??9999)-(B.order??9999) || A.name.localeCompare(B.name);
+    });
+  }
+  function renderList(){
+    const q = $("q").value.trim().toLowerCase();
+    const ids = sortedIds().filter(id => !q || exercises[id].name.toLowerCase().includes(q));
+    if(!Object.keys(exercises).length){ $("list").innerHTML='<div class="empty">No exercises yet. Tap + Exercise.</div>'; return; }
+    if(!ids.length){ $("list").innerHTML='<div class="empty">No match.</div>'; return; }
+    $("list").innerHTML = ids.map(id=>{
+      const ex = exercises[id], t = topOf(ex), l = lastOf(ex);
+      const topHtml = t ? `${wTxt(t.w)}<span> × ${esc(t.reps||"")}</span>` : (l ? `<span>${esc(l.reps||l.note||"")}</span>` : `<span>–</span>`);
+      return `<button class="ex" data-id="${esc(id)}"><div class="nm"><b>${esc(ex.name)}</b><small>${l? "Last: "+fmtDate(l.date) : "No entries"}</small></div><div class="top">${topHtml}</div></button>`;
+    }).join("");
+  }
+  function showHome(){
+    $("detail").style.display="none"; $("home").style.display="block";
+    renderList();
+  }
+  function openDetail(id){
+    currentId=id; armedDelete=null;
+    const l = lastOf(exercises[id]);
+    $("fW").value = l && l.w!=null && l.w!=="" ? l.w : "";
+    $("fR").value = ""; $("fN").value = "";
+    $("home").style.display="none"; $("detail").style.display="block";
+    window.scrollTo(0,0);
+    renderDetail();
+  }
+  function renderDetail(){
+    const ex = exercises[currentId]; if(!ex) return;
+    $("dName").textContent = ex.name;
+    const t = topOf(ex), l = lastOf(ex);
+    $("dTop").innerHTML = t ? `${wTxt(t.w)} lb <span style="color:var(--muted);font-size:15px">× ${esc(t.reps||"")}</span>` : "–";
+    $("dLast").textContent = l ? fmtDate(l.date) : "–";
+    const log = (ex.log||[]).slice().sort((a,b)=> (b.date||"").localeCompare(a.date||"") || (b.t||0)-(a.t||0));
+    $("dHist").innerHTML = log.length ? log.map(e=>{
+      const isTop = t && e.id===t.id;
+      return `<div class="entry"><div class="w">${e.w==null||e.w===""?"–":wTxt(e.w)+" lb"}</div><div class="r">${esc(e.reps||"")}${isTop?'<span class="badge">TOP</span>':""}<small>${fmtDate(e.date)}${e.note?" · "+esc(e.note):""}</small></div><button class="x ${armedDelete===e.id?"armed":""}" data-del="${esc(e.id)}">${armedDelete===e.id?"Delete?":"×"}</button></div>`;
+    }).join("") : '<div class="empty">Nothing logged yet.</div>';
+  }
+
+  // ---------- actions ----------
+  $("list").addEventListener("click", e=>{ const b=e.target.closest(".ex"); if(b) openDetail(b.dataset.id); });
+  $("q").addEventListener("input", renderList);
+  $("backBtn").addEventListener("click", ()=>{ currentId=null; showHome(); });
+
+  $("saveBtn").addEventListener("click", async ()=>{
+    const ex = exercises[currentId]; if(!ex) return;
+    const wRaw = $("fW").value.trim(), reps = $("fR").value.trim(), note = $("fN").value.trim();
+    if(!wRaw && !reps && !note){ toast("Add a weight or reps"); return; }
+    const w = wRaw==="" ? null : Number(wRaw.replace(",","."));
+    if(wRaw!=="" && isNaN(w)){ toast("Weight must be a number"); return; }
+    const prev = topOf(ex);
+    const entry = {id:uid(), date:today(), t:Date.now(), w, reps, note};
+    ex.log = (ex.log||[]).concat(entry);
+    const now = topOf(ex);
+    $("fR").value=""; $("fN").value="";
+    renderDetail();
+    if(w!=null && (!prev || w>prev.w || (w===prev.w && maxRep(reps)>maxRep(prev.reps)))) toast(prev ? "New PR 🔥" : "Logged"); else toast("Logged");
+    await persist(currentId);
+  });
+
+  $("dHist").addEventListener("click", async e=>{
+    const b = e.target.closest("[data-del]"); if(!b) return;
+    const id = b.dataset.del;
+    if(armedDelete!==id){ armedDelete=id; renderDetail(); setTimeout(()=>{ if(armedDelete===id){armedDelete=null;renderDetail();} },3000); return; }
+    armedDelete=null;
+    const ex = exercises[currentId];
+    ex.log = (ex.log||[]).filter(x=>x.id!==id);
+    renderDetail(); await persist(currentId);
+  });
+
+  // sheet: add / rename / delete
+  let delArmed=false;
+  function openSheet(mode){
+    sheetMode=mode; delArmed=false;
+    $("sTitle").textContent = mode==="add" ? "New exercise" : "Edit exercise";
+    $("sName").value = mode==="add" ? "" : exercises[currentId].name;
+    $("sDelete").style.display = mode==="add" ? "none" : "block";
+    $("sDelete").textContent = "Delete exercise";
+    $("sheet").style.display="flex"; setTimeout(()=>$("sName").focus(),50);
+  }
+  const closeSheet = ()=>{ $("sheet").style.display="none"; };
+  $("addBtn").addEventListener("click", ()=>openSheet("add"));
+  $("renameBtn").addEventListener("click", ()=>openSheet("edit"));
+  $("sCancel").addEventListener("click", closeSheet);
+  $("sheet").addEventListener("click", e=>{ if(e.target.id==="sheet") closeSheet(); });
+  $("sName").addEventListener("keydown", e=>{ if(e.key==="Enter") $("sSave").click(); });
+  $("sSave").addEventListener("click", async ()=>{
+    const name = $("sName").value.trim(); if(!name){ toast("Name it"); return; }
+    if(sheetMode==="add"){
+      const id = slug(name);
+      const maxOrder = Math.max(0,...Object.values(exercises).map(x=>x.order||0));
+      exercises[id] = {name, order:maxOrder+1, log:[]};
+      closeSheet(); openDetail(id); await persist(id);
+    } else {
+      exercises[currentId].name = name; closeSheet(); renderDetail(); await persist(currentId);
+    }
+  });
+  $("sDelete").addEventListener("click", async ()=>{
+    if(!delArmed){ delArmed=true; $("sDelete").textContent="Tap again to delete for good"; return; }
+    const id=currentId; delete exercises[id]; closeSheet(); currentId=null; showHome(); await persist(id);
+  });
+
+  // export
+  $("exportBtn").addEventListener("click", ()=>{
+    const lines = sortedIds().map(id=>{
+      const ex=exercises[id], t=topOf(ex), l=lastOf(ex);
+      if(t) return `${ex.name} ${wTxt(t.w)} ${t.reps||""}`.trim();
+      if(l) return `${ex.name} ${l.reps||""} ${l.note||""}`.trim();
+      return ex.name;
+    });
+    $("expText").value = lines.join("\n");
+    $("expSheet").style.display="flex";
+  });
+  $("expClose").addEventListener("click", ()=>$("expSheet").style.display="none");
+  $("expCopy").addEventListener("click", async ()=>{
+    try{ await navigator.clipboard.writeText($("expText").value); toast("Copied"); }
+    catch(e){ $("expText").select(); toast("Select all and copy"); }
+  });
+
+  // ---------- backup ----------
+  const BKEY = "liftlog.lastBackup";
+  function lastBackup(){ try{ return Number(localStorage.getItem(BKEY))||null; }catch(e){ return null; } }
+  function checkBackupNag(){
+    const t = lastBackup(), d = t ? Math.floor((Date.now()-t)/86400000) : null;
+    const hasLogs = Object.values(exercises).some(x=>(x.log||[]).some(e=>e.note!=="From notes"));
+    if(hasLogs && (d===null || d>=14)) banner(d===null ? "No backup yet. Tap Backup and email yourself the file." : `Last backup was ${d} days ago. Tap Backup.`);
+    else banner(null);
+  }
+  function renderBackup(){
+    const t = lastBackup();
+    $("backupStatus").textContent = `${Object.keys(exercises).length} exercises saved on this phone. ` + (t ? `Last backup ${new Date(t).toLocaleDateString()}.` : "Never backed up.");
+  }
+  $("backupBtn").addEventListener("click", async ()=>{
+    const name = `lift-log-backup-${today()}.json`;
+    const blob = new Blob([JSON.stringify({app:"lift-log",version:1,exported:new Date().toISOString(),exercises},null,2)],{type:"application/json"});
+    let done=false;
+    try{
+      const file = new File([blob], name, {type:"application/json"});
+      if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:"Lift Log backup"}); done=true; }
+    }catch(e){ if(e && e.name==="AbortError") return; }
+    if(!done){ const a=$("dlLink"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); }
+    try{ localStorage.setItem(BKEY, String(Date.now())); }catch(e){}
+    renderBackup(); checkBackupNag(); toast("Backup made");
+  });
+  $("restoreFile").addEventListener("change", async e=>{
+    const f = e.target.files[0]; if(!f) return;
+    try{
+      const data = JSON.parse(await f.text());
+      const inc = data && data.exercises;
+      if(!inc || typeof inc!=="object") throw new Error();
+      let added=0;
+      for(const id in inc){
+        const x = inc[id]; if(!x || !x.name) continue;
+        if(!exercises[id]){ exercises[id]=x; added++; continue; }
+        const have = new Set((exercises[id].log||[]).map(l=>l.id));
+        (x.log||[]).forEach(l=>{ if(l && !have.has(l.id)){ exercises[id].log.push(l); } });
+      }
+      await persist(); render(); toast(`Restored. ${added} new exercise${added===1?"":"s"}.`);
+    }catch(err){ toast("That file isn't a Lift Log backup"); }
+    e.target.value="";
+  });
+
+  // ---------- starting list (from notes app) ----------
+  const SEED = [
+    ["fly-machine","Fly machine",[[220,"10,10,10"]]],
+    ["tri-machine-59th","Tri machine (59th St)",[[80,"10"],[90,"5,6"]]],
+    ["incline-db-flys","Incline DB flys",[[55,"10,10"]]],
+    ["cable-flys","Cable flys",[[53,"5,5"]]],
+    ["overhead-tri","Overhead tri",[[95,"6,6"]]],
+    ["hack-squat","Hack squat",[[405,"5,5"]]],
+    ["hamstring-single-leg","Hamstring single leg",[[120,"5,5,5"]]],
+    ["hamstring","Hamstring",[[110,"5,5"]]],
+    ["pullover","Pullover",[[105,"5,5"]]],
+    ["pullups","Pullups (added weight)",[[45,"5,5"]]],
+    ["walking-lunge","Walking lunge",[[50,"2 sets"]]],
+    ["static-bear-hold","Static bear hold",[[null,"60/60","3m"]]],
+    ["static-t-hold","Static T hold",[[12.5,"60s"]]],
+    ["single-arm-overhead-tri","Single arm overhead tri",[[40,"6,6"]]],
+    ["deadlift-straight","Deadlift straight leg",[[235,"5"]]],
+    ["deadlift-sumo","Deadlift sumo",[[315,"5"],[365,"2"]]],
+    ["bicep-curl","Bicep curl",[[50,"5"]]],
+    ["rev-pulldown","Reverse pulldown",[[180,"5,6,6"]]],
+    ["preacher-curl","Preacher curl",[[100,""]]],
+    ["incline-curls","Incline curls",[[30,"10,10,8"]]]
+  ];
+  function seed(){
+    const o = {};
+    SEED.forEach(([id,name,logs],i)=>{
+      o[id] = {name, order:i+1, log: logs.map(([w,reps,extra],j)=>({id:id+"-s"+j, date:"2026-11-14", t:j+1, w, reps, note: extra ? extra+" · From notes" : "From notes"}))};
+    });
+    return o;
+  }
+
+  // ---------- boot ----------
+  let raw = null; try{ raw = localStorage.getItem(LS_KEY); }catch(e){}
+  exercises = raw ? loadLocal() : seed();
+  if(!raw) persist();
+  render(); renderBackup(); checkBackupNag();
+  if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
+  if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+})();
+</script>
+</body>
+</html>
