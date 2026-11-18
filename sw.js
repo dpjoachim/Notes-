@@ -1,4 +1,4 @@
-const CACHE = "session-notes-v3";
+const CACHE = "session-notes-v4";
 const FILES = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {

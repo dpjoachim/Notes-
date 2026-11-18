@@ -67,7 +67,12 @@
   .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
   .banner{background:var(--warn-soft);color:var(--warn);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:14px;display:none}
   .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-  .chip{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:6px 11px;font:500 14px Inter,sans-serif;color:var(--ink);cursor:pointer}
+  .chip{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:9px 14px;font:500 15px Inter,sans-serif;color:var(--ink);cursor:pointer}
+  .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .crow{display:flex;gap:8px;align-items:stretch;margin-bottom:8px}
+  .crow .list-item{margin:0;flex:1}
+  .crow .list-item .d{color:var(--accent);font-weight:600}
+  .crow .hist{align-self:center}
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:20px;z-index:30}
   .modal.show{display:flex}
   .modal .card{max-width:360px;width:100%}
@@ -91,9 +96,9 @@
   <section id="v-new">
     <div class="card">
       <label for="client">Client</label>
-      <input id="client" list="clientList" placeholder="Type a name" autocomplete="off">
+      <div class="chips" id="recentChips" style="margin:0 0 10px"></div>
+      <input id="client" list="clientList" placeholder="Tap a name above, or type a new client" autocomplete="off">
       <datalist id="clientList"></datalist>
-      <div class="chips" id="recentChips"></div>
 
       <div id="lastBox"></div>
 
@@ -235,7 +240,7 @@ function updateLast(){
   </div>`;
   $("#editLast").onclick = () => fillForm(l);
 }
-$("#client").addEventListener("input", updateLast);
+$("#client").addEventListener("input", ()=>{ updateLast(); renderChips(); });
 $("#copyLast").onclick = () => {
   const l = lastFor($("#client").value, editingId); if(!l) return;
   const ex=$("#ex"); ex.value = ex.value.trim() ? ex.value.trim()+"\n"+l.exercises : l.exercises; toast("Copied. Edit the weights.");
@@ -258,19 +263,28 @@ $("#save").onclick = async () => {
 };
 
 /* ---------- lists ---------- */
+function startFor(name){
+  if(editingId) resetForm();
+  $("#client").value=name; $("#date").value=today();
+  updateLast(); renderChips(); show("new");
+}
 function renderChips(){
-  const c = clients().slice(0,6);
-  $("#recentChips").innerHTML = c.map(x=>`<button class="chip" data-n="${esc(x.name)}">${esc(x.name)}</button>`).join("");
-  document.querySelectorAll("#recentChips .chip").forEach(b=>b.onclick=()=>{ $("#client").value=b.dataset.n; updateLast(); });
+  const c = clients().sort((a,b)=>a.name.localeCompare(b.name));
+  const cur = key($("#client").value);
+  $("#recentChips").innerHTML = c.map(x=>`<button class="chip${key(x.name)===cur?" on":""}" data-n="${esc(x.name)}">${esc(x.name)}</button>`).join("");
+  document.querySelectorAll("#recentChips .chip").forEach(b=>b.onclick=()=>startFor(b.dataset.n));
   $("#clientList").innerHTML = clients().map(x=>`<option value="${esc(x.name)}">`).join("");
 }
 function renderClients(){
   const q=key($("#clientSearch").value); const list=clients().filter(c=>!q||key(c.name).includes(q));
-  $("#clientsOut").innerHTML = list.length ? list.map(c=>`<button class="list-item" data-n="${esc(c.name)}">
-    <div class="t"><span>${esc(c.name)}</span><span class="d">${esc(fmtDate(c.last))}</span></div>
-    <div class="p">${c.count} note${c.count>1?"s":""}</div></button>`).join("")
+  $("#clientsOut").innerHTML = list.length ? list.map(c=>`<div class="crow">
+    <button class="list-item" data-n="${esc(c.name)}">
+      <div class="t"><span>${esc(c.name)}</span><span class="d">+ Today</span></div>
+      <div class="p">Last: ${esc(fmtDate(c.last))} · ${c.count} note${c.count>1?"s":""}</div></button>
+    <button class="btn small hist" data-n="${esc(c.name)}">History</button></div>`).join("")
     : `<div class="empty">${notes.length?"No match.":"No clients yet. Save your first note."}</div>`;
-  document.querySelectorAll("#clientsOut .list-item").forEach(b=>b.onclick=()=>{ clientFilter=b.dataset.n; show("all"); });
+  document.querySelectorAll("#clientsOut .list-item").forEach(b=>b.onclick=()=>startFor(b.dataset.n));
+  document.querySelectorAll("#clientsOut .hist").forEach(b=>b.onclick=()=>{ clientFilter=b.dataset.n; show("all"); });
 }
 $("#clientSearch").addEventListener("input", renderClients);
 
