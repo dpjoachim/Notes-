@@ -391,13 +391,34 @@ textarea{min-height:220px;font-size:14px}
     SEED.forEach(([id,name,logs],i)=>{
       o[id] = {name, order:i+1, log: logs.map(([w,reps,extra],j)=>({id:id+"-s"+j, date:"2026-11-14", t:j+1, w, reps, note: extra ? extra+" · From notes" : "From notes"}))};
     });
+    o["hack-squat"].log = IMPORTED["hack-squat"].slice();
     return o;
+  }
+
+  // Sets logged in the old claude.ai version (moved over Nov 23 2026)
+  const IMPORTED = {
+    "hack-squat": [
+      {id:"mwguxnviiuurk", date:"2026-11-14", t:1794688062750, w:405, reps:"5,5,5", note:"2nd hole"},
+      {id:"mwtqc9hyj223f", date:"2026-11-23", t:1795466406166, w:425, reps:"5,5", note:""}
+    ]
+  };
+  const MIG_KEY = "liftlog.import.claude1";
+  function migrate(){
+    try{ if(localStorage.getItem(MIG_KEY)) return; }catch(e){ return; }
+    const hs = exercises["hack-squat"];
+    if(hs){
+      hs.log = (hs.log||[]).filter(l=>l.id!=="hack-squat-s0");
+      const have = new Set(hs.log.map(l=>l.id));
+      IMPORTED["hack-squat"].forEach(l=>{ if(!have.has(l.id)) hs.log.push(Object.assign({},l)); });
+    }
+    try{ localStorage.setItem(MIG_KEY,"1"); }catch(e){}
   }
 
   // ---------- boot ----------
   let raw = null; try{ raw = localStorage.getItem(LS_KEY); }catch(e){}
   exercises = raw ? loadLocal() : seed();
-  if(!raw) persist();
+  if(raw) migrate(); else { try{ localStorage.setItem(MIG_KEY,"1"); }catch(e){} }
+  persist();
   render(); renderBackup(); checkBackupNag();
   if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
   if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
