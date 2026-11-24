@@ -129,7 +129,8 @@
         <textarea id="next" style="min-height:64px" placeholder="Progress RDL to 25lb. Ask how the trip went."></textarea>
       </div>
     </div>
-    <button class="btn primary" id="save">Save note</button>
+    <div id="saveState" class="hint" style="text-align:center;margin:0 0 8px;min-height:18px"></div>
+    <button class="btn primary" id="save">Done</button>
     <div class="actions" id="editActions" style="justify-content:center"></div>
   </section>
 
@@ -200,7 +201,7 @@ function show(v){
 }
 document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
   if(b.dataset.v==="all") clientFilter = null;
-  if(b.dataset.v==="new" && editingId) resetForm();
+  flushSave();
   show(b.dataset.v);
 });
 
@@ -215,17 +216,20 @@ function clients(){
 function lastFor(name, excludeId){ const k=key(name); return sorted().find(n => key(n.client)===k && n.id!==excludeId); }
 
 /* ---------- form ---------- */
+const DKEY="sessionNotes.openNote";
+function rememberOpen(id){ try{ id ? localStorage.setItem(DKEY,id) : localStorage.removeItem(DKEY); }catch{} }
+function setState(t){ $("#saveState").textContent=t||""; }
 function resetForm(){
-  editingId=null; ["client","ex","talk","flags","next"].forEach(i=>$("#"+i).value="");
-  $("#date").value=today(); $("#save").textContent="Save note"; $("#editActions").innerHTML=""; updateLast();
+  flushSave();
+  editingId=null; rememberOpen(null); ["client","ex","talk","flags","next"].forEach(i=>$("#"+i).value="");
+  $("#date").value=today(); setState(""); $("#editActions").innerHTML=""; updateLast(); renderChips();
 }
-function fillForm(n){
-  editingId=n.id; $("#client").value=n.client||""; $("#date").value=n.date||today();
+function fillForm(n, stay){
+  flushSave();
+  editingId=n.id; rememberOpen(n.id); $("#client").value=n.client||""; $("#date").value=n.date||today();
   $("#ex").value=n.exercises||""; $("#talk").value=n.talked||""; $("#flags").value=n.flags||""; $("#next").value=n.next||"";
-  $("#save").textContent="Update note";
-  $("#editActions").innerHTML='<button class="btn small" id="cancelEdit">Cancel edit</button>';
-  $("#cancelEdit").onclick=()=>{ resetForm(); };
-  updateLast(); show("new");
+  setState(n.date===today() ? "Today's note. Saves as you type." : "Editing the "+fmtDate(n.date)+" note. Saves as you type.");
+  updateLast(); renderChips(); if(!stay) show("new");
 }
 function updateLast(){
   const name=$("#client").value; const box=$("#lastBox"); const l = name.trim() ? lastFor(name, editingId) : null;
@@ -236,36 +240,60 @@ function updateLast(){
     ${l.flags?`<div style="margin-top:4px"><span class="k flag">Watch:</span> <span class="pre">${esc(l.flags)}</span></div>`:""}
     ${l.talked?`<div style="margin-top:4px"><span class="k">Talked about:</span> <span class="pre">${esc(l.talked)}</span></div>`:""}
     ${l.exercises?`<div style="margin-top:4px"><span class="k">Did:</span> <span class="pre">${esc(l.exercises)}</span></div>`:""}
-    <button class="btn small" id="editLast" style="margin-top:10px">Edit this note</button>
+    <div style="display:flex;gap:8px;margin-top:10px"><button class="btn small" id="editLast">Edit this note</button>
+    <button class="btn small" id="histLast">Full history</button></div>
   </div>`;
   $("#editLast").onclick = () => fillForm(l);
+  $("#histLast").onclick = () => { flushSave(); clientFilter=norm(name); $("#noteSearch").value=""; show("all"); };
 }
-$("#client").addEventListener("input", ()=>{ updateLast(); renderChips(); });
+$("#client").addEventListener("input", ()=>{ updateLast(); renderChips(); queueSave(); });
 $("#copyLast").onclick = () => {
   const l = lastFor($("#client").value, editingId); if(!l) return;
-  const ex=$("#ex"); ex.value = ex.value.trim() ? ex.value.trim()+"\n"+l.exercises : l.exercises; toast("Copied. Edit the weights.");
+  const ex=$("#ex"); ex.value = ex.value.trim() ? ex.value.trim()+"\n"+l.exercises : l.exercises; toast("Copied. Edit the weights."); queueSave();
 };
 
-$("#save").onclick = async () => {
-    const client = norm($("#client").value);
-  if(!client){ $("#client").focus(); toast("Add the client's name"); return; }
-  const body = { client, date: $("#date").value || today(),
+/* ---------- autosave ---------- */
+let saveTimer=null;
+function formBody(){
+  return { client: norm($("#client").value), date: $("#date").value || today(),
     exercises: $("#ex").value.trim(), talked: $("#talk").value.trim(), flags: $("#flags").value.trim(), next: $("#next").value.trim(),
     updatedAt: Date.now() };
-  const btn=$("#save"); btn.disabled=true;
-  try{
-    if(editingId){ const prev = notes.find(n=>n.id===editingId); body.createdAt = prev?.createdAt || Date.now(); await col.doc(editingId).set(body); toast("Updated"); }
-    else { body.createdAt = Date.now(); await col.add(body); toast("Saved"); }
-    resetForm();
-  }catch(e){
-    toast(e?.code==="quota_exceeded" ? "Storage full. Delete some old notes." : "Didn't save. Try again.");
-  }finally{ btn.disabled=false; }
+}
+function doSave(){
+  saveTimer=null;
+  const b=formBody(); const has = b.exercises||b.talked||b.flags||b.next;
+  if(!editingId && !has) return;
+  if(!b.client){ setState("Pick a client and it saves automatically."); return; }
+  const i = editingId ? notes.findIndex(n=>n.id===editingId) : -1;
+  if(i<0){ editingId = editingId || uid(); b.createdAt=Date.now(); notes.push({id:editingId, ...b}); }
+  else { b.createdAt = notes[i].createdAt || Date.now(); notes[i] = {id:editingId, ...b}; }
+  rememberOpen(editingId);
+  if(persist()){ setState("Saved " + new Date().toLocaleTimeString([], {hour:"numeric", minute:"2-digit"})); renderChips(); checkBackupNag(); }
+  else setState("Couldn't save. Phone storage is full.");
+}
+function queueSave(){ clearTimeout(saveTimer); setState("Saving..."); saveTimer=setTimeout(doSave, 700); }
+function flushSave(){ if(saveTimer){ clearTimeout(saveTimer); doSave(); } }
+["ex","talk","flags","next"].forEach(id=>$("#"+id).addEventListener("input", queueSave));
+$("#date").addEventListener("change", ()=>{ if(editingId) queueSave(); });
+document.addEventListener("visibilitychange", ()=>{ if(document.hidden) flushSave(); });
+window.addEventListener("pagehide", flushSave);
+
+$("#save").onclick = () => {
+  flushSave();
+  const b=formBody(); const has = b.exercises||b.talked||b.flags||b.next;
+  if(has && !b.client){ $("#client").focus(); toast("Add the client's name"); return; }
+  if(editingId) toast("Saved");
+  resetForm(); window.scrollTo(0,0);
 };
 
 /* ---------- lists ---------- */
 function startFor(name){
-  if(editingId) resetForm();
+  flushSave();
+  const existing = sorted().find(n => key(n.client)===key(name) && n.date===today());
+  if(existing){ fillForm(existing); return; }
+  resetForm();
   $("#client").value=name; $("#date").value=today();
+  setState("Start typing. It saves as you go.");
   updateLast(); renderChips(); show("new");
 }
 function renderChips(){
@@ -284,7 +312,7 @@ function renderClients(){
     <button class="btn small hist" data-n="${esc(c.name)}">History</button></div>`).join("")
     : `<div class="empty">${notes.length?"No match.":"No clients yet. Save your first note."}</div>`;
   document.querySelectorAll("#clientsOut .list-item").forEach(b=>b.onclick=()=>startFor(b.dataset.n));
-  document.querySelectorAll("#clientsOut .hist").forEach(b=>b.onclick=()=>{ clientFilter=b.dataset.n; show("all"); });
+  document.querySelectorAll("#clientsOut .hist").forEach(b=>b.onclick=()=>{ clientFilter=b.dataset.n; $("#noteSearch").value=""; show("all"); });
 }
 $("#clientSearch").addEventListener("input", renderClients);
 
@@ -298,8 +326,19 @@ function renderAll(){
       <h3 style="margin:0">${esc(clientFilter)}</h3>
       <div style="text-align:right"><button class="btn small" id="newFor">+ Note</button> <button class="btn small" id="copyAll">Copy all</button></div></div>` : "";
   if(clientFilter){
-    $("#newFor").onclick=()=>{ resetForm(); $("#client").value=clientFilter; updateLast(); show("new"); };
+    $("#newFor").onclick=()=>startFor(clientFilter);
     $("#copyAll").onclick=()=>copyText(list.map(asText).join("\n\n----------\n\n"));
+  }
+  if(clientFilter){
+    const sec=(t,v,cls="")=> v?`<div class="sec"><b>${t}</b><div class="pre ${cls}">${esc(v)}</div></div>`:"";
+    $("#allOut").innerHTML = list.length ? list.map(n=>`<div class="card note">
+      <div style="display:flex;justify-content:space-between;align-items:center"><h3 style="font-size:17px">${esc(fmtDate(n.date))}</h3>
+      <button class="btn small hedit" data-id="${esc(n.id)}">Edit</button></div>
+      ${sec("What they did",n.exercises)}${sec("What we talked about",n.talked)}
+      ${sec("Pain, injuries, how they felt",n.flags,"flag")}${sec("Next time",n.next)}</div>`).join("")
+      : `<div class="empty">Nothing found.</div>`;
+    document.querySelectorAll("#allOut .hedit").forEach(b=>b.onclick=()=>{ const n=notes.find(x=>x.id===b.dataset.id); if(n) fillForm(n); });
+    return;
   }
   $("#allOut").innerHTML = list.length ? list.map(n=>`<button class="list-item" data-id="${esc(n.id)}">
     <div class="t"><span>${esc(clientFilter?fmtDate(n.date):n.client)}</span><span class="d">${clientFilter?"":esc(fmtDate(n.date))}</span></div>
@@ -331,7 +370,8 @@ function openNote(id){
   $("#edit").onclick=()=>fillForm(n);
   $("#cp").onclick=()=>copyText(asText(n));
   $("#del").onclick=async()=>{ if(!(await ask(`Delete this note for ${n.client}?`))) return;
-    try{ await col.doc(n.id).delete(); toast("Deleted"); show("all"); }catch{ toast("Didn't delete. Try again."); } };
+    try{ if(editingId===n.id){ clearTimeout(saveTimer); saveTimer=null; editingId=null; resetForm(); }
+      await col.doc(n.id).delete(); toast("Deleted"); show("all"); }catch{ toast("Didn't delete. Try again."); } };
   show("note");
 }
 
@@ -393,6 +433,8 @@ $("#restoreFile").onchange = async e => {
 $("#date").value = today();
 notes = load();
 rerender(); checkBackupNag();
+try{ const oid=localStorage.getItem(DKEY); const on=notes.find(n=>n.id===oid);
+  if(on && on.date===today()) fillForm(on); else rememberOpen(null); }catch{}
 if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
 if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
